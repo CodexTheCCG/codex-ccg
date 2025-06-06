@@ -1,33 +1,55 @@
-// Scanner.jsx
-import React, { useEffect, useRef } from "react";
-import { BrowserMultiFormatReader } from "@zxing/library";
+import React, { useEffect, useRef, useState } from "react";
+import { BrowserMultiFormatReader } from "@zxing/browser";
 
 export default function Scanner() {
   const videoRef = useRef(null);
+  const [scannedCode, setScannedCode] = useState(null);
+  const codeReader = useRef(null);
 
   useEffect(() => {
-    const codeReader = new BrowserMultiFormatReader();
+    codeReader.current = new BrowserMultiFormatReader();
 
-    codeReader.decodeFromVideoDevice(null, videoRef.current, (result, err) => {
-      if (result) {
-        console.log("Barcode scanned:", result.getText());
-        // Handle barcode result here
-      }
-    });
+    codeReader.current
+      .decodeFromVideoDevice(null, videoRef.current, (result, err) => {
+        if (result) {
+          const code = result.getText();
+          if (code !== scannedCode) {
+            setScannedCode(code);
+          }
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to start barcode scanner", err);
+      });
 
     return () => {
-      codeReader.reset();
+      if (codeReader.current) {
+        codeReader.current.reset?.();
+        codeReader.current.stopContinuousDecode?.();
+      }
     };
-  }, []);
+  }, [scannedCode]);
 
   return (
     <div style={styles.container}>
+      {/* Floating Camera */}
       <div style={styles.cameraWrapper}>
-        <video ref={videoRef} style={styles.video} autoPlay muted playsInline />
-        <div style={styles.scanOverlay}></div>
+        <video ref={videoRef} style={styles.video} playsInline muted />
       </div>
-      <div style={styles.footer}>
-        <p style={styles.footerText}>Scanning for encoded fragments...</p>
+
+      {/* Scrollable Area Below */}
+      <div style={styles.scrollArea}>
+        <h2 style={styles.title}>Barcode Scanner</h2>
+        {scannedCode && (
+          <div style={styles.infoBox}>
+            <h3>Scan Successful!</h3>
+          </div>
+        )}
+        <div style={styles.placeholder}>
+          <p>This is a scrollable area below the camera.</p>
+          <p>Scroll down for more content.</p>
+          <div style={{ height: "1200px" }} />
+        </div>
       </div>
     </div>
   );
@@ -35,47 +57,50 @@ export default function Scanner() {
 
 const styles = {
   container: {
-    backgroundColor: "#0A0A0A",
-    height: "100vh",
-    width: "100vw",
-    display: "flex",
-    flexDirection: "column",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 0,
+    position: "relative",
+    backgroundColor: "#111",
+    minHeight: "100vh",
   },
   cameraWrapper: {
-    position: "relative",
-    marginTop: "30px",
-    border: "3px solid #7F00FF",
-    borderRadius: "12px",
-    overflow: "hidden",
-  },
-  video: {
-    width: "320px",
-    height: "240px",
-    objectFit: "cover",
-  },
-  scanOverlay: {
-    position: "absolute",
+    position: "fixed",
     top: 0,
     left: 0,
     width: "100%",
-    height: "100%",
-    boxShadow: "0 0 20px #FF44AA inset, 0 0 10px #00FFD1 inset",
-    pointerEvents: "none",
-    zIndex: 1,
+    backgroundColor: "#000",
+    zIndex: 1000,
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    height: "220px",
+    borderBottom: "2px solid #333",
   },
-  footer: {
-    width: "100%",
-    backgroundColor: "#1a1a1a",
-    padding: "20px 0",
-    borderTop: "2px solid #AFAFAF",
+  video: {
+    width: "90%",
+    maxWidth: "480px",
+    height: "200px",
+    objectFit: "cover",
+    borderRadius: "10px",
+    border: "4px solid #ccc",
+  },
+  scrollArea: {
+    marginTop: "240px", // Leave space for fixed camera
+    padding: "20px",
     textAlign: "center",
   },
-  footerText: {
-    color: "#FF44AA",
-    fontFamily: "monospace",
-    fontSize: "1rem",
+  title: {
+    color: "#fff",
+    marginBottom: "20px",
+  },
+  infoBox: {
+    backgroundColor: "#222",
+    color: "#fff",
+    borderRadius: "10px",
+    padding: "15px",
+    margin: "20px auto",
+    maxWidth: "300px",
+  },
+  placeholder: {
+    color: "#aaa",
+    fontSize: "0.95rem",
   },
 };
