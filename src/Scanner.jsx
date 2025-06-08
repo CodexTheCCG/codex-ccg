@@ -1,54 +1,249 @@
 import React, { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { BrowserMultiFormatReader } from "@zxing/browser";
+import { Camera, Egg, Coin, Barcode, EggCrack, Fingerprint, Cpu } from "phosphor-react";
+import { getRewardFromBarcode } from "./rewards";
 
 export default function Scanner() {
   const videoRef = useRef(null);
-  const [scannedCode, setScannedCode] = useState(null);
+  const canvasRef = useRef(null);
   const codeReader = useRef(null);
+  const navigate = useNavigate();
+  const [scannedToday, setScannedToday] = useState(0);
+  const [scannedBarcodes, setScannedBarcodes] = useState(new Set());
+  const [message, setMessage] = useState("");
+  const [coins, setCoins] = useState(() => parseInt(localStorage.getItem("coins") || "0", 10));
+  const [eggs, setEggs] = useState(() => JSON.parse(localStorage.getItem("eggs") || "[]"));
+  const [extraScans, setExtraScans] = useState(() => parseInt(localStorage.getItem("extraScans") || "0", 10));
+  const [buddyEgg, setBuddyEgg] = useState(null);
 
-  useEffect(() => {
-    codeReader.current = new BrowserMultiFormatReader();
+  const SCAN_LIMIT = 1000;
 
-    codeReader.current
-      .decodeFromVideoDevice(null, videoRef.current, (result, err) => {
-        if (result) {
-          const code = result.getText();
-          if (code !== scannedCode) {
-            setScannedCode(code);
-          }
-        }
-      })
-      .catch((err) => {
-        console.error("Failed to start barcode scanner", err);
+      
+      const [monsters, setMonsters] = useState(() => {
+        const stored = localStorage.getItem("monsters");
+        return stored ? JSON.parse(stored) : [];
       });
 
-    return () => {
-      if (codeReader.current) {
-        codeReader.current.reset?.();
-        codeReader.current.stopContinuousDecode?.();
+  useEffect(() => {
+    const buddyId = localStorage.getItem("buddyEggId");
+    const storedEggs = JSON.parse(localStorage.getItem("eggs") || "[]");
+    if (buddyId) {
+      const buddy = storedEggs.find(e => e.id.toString() === buddyId.toString());
+      setBuddyEgg(buddy || null);
+    } else {
+      setBuddyEgg(null);
+    }
+  }, [eggs, scannedToday]);
+
+  useEffect(() => {
+    const storedDate = localStorage.getItem("scanDate");
+    const storedCount = parseInt(localStorage.getItem("scanCount") || "0", 10);
+    const now = new Date();
+    const estNow = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
+    const todayStr = estNow.toDateString();
+
+    if (storedDate === todayStr) {
+      setScannedToday(storedCount);
+    } else {
+      localStorage.setItem("scanDate", todayStr);
+      localStorage.setItem("scanCount", "0");
+    }
+
+    codeReader.current = new BrowserMultiFormatReader();
+    codeReader.current.decodeFromVideoDevice(
+      null,
+      videoRef.current,
+      (result) => {
+        if (result) handleBarcode(result.getText());
+      },
+      {
+        video: { facingMode: "environment" },
       }
+    );
+
+    return () => {
+      codeReader.current?.reset?.();
+      codeReader.current?.stopContinuousDecode?.();
     };
-  }, [scannedCode]);
+  }, [scannedBarcodes]);
+
+  const handleBarcode = (code) => {
+    if (scannedToday >= SCAN_LIMIT + extraScans) {
+      setMessage("🚫 Daily scan limit reached.");
+      return;
+    }
+
+    if (!scannedBarcodes.has(code)) {
+      setScannedBarcodes((prev) => new Set(prev).add(code));
+
+      setScannedToday((prev) => {
+        const newCount = prev + 1;
+        localStorage.setItem("scanCount", newCount.toString());
+        return newCount;
+      });
+
+      const reward = getRewardFromBarcode(code);
+
+      if (reward) {
+        switch (reward.type) {
+          case "egg":
+            const newEgg = {
+              id: Date.now(),
+              rarity: reward.rarity,
+              hatchScans: reward.hatchScans || 100,
+              progress: 0,
+              spriteId: null,
+              creatureName: null,
+              basePrompt: reward.prompt || `cute ${reward.rarity} creature`,
+            };
+
+            const updatedEggs = [...eggs, newEgg];
+            localStorage.setItem("eggs", JSON.stringify(updatedEggs));
+            setEggs(updatedEggs);
+            setMessage(`🥚 Found a ${reward.rarity} egg!`);
+
+            generateCreatureSpriteForEgg(newEgg).then(({ spriteId, creatureName }) => {
+              const updated = updatedEggs.map(e => {
+                if (e.id === newEgg.id) {
+                  return { ...e, spriteId, creatureName };
+                }
+                return e;
+              });
+              localStorage.setItem("eggs", JSON.stringify(updated));
+              setEggs(updated);
+              saveToCreaturePool(spriteId, creatureName, newEgg.basePrompt);
+            });
+
+            break;
+
+
+          case "extraScans":
+            setExtraScans(prev => {
+              const updated = prev + reward.amount;
+              localStorage.setItem("extraScans", updated.toString());
+              return updated;
+            });
+            setMessage(`➕ Earned ${reward.amount} extra scan(s)!`);
+            break;
+
+          case "currency":
+            setCoins(prev => {
+              const updated = prev + reward.amount;
+              localStorage.setItem("coins", updated.toString());
+              return updated;
+            });
+            setMessage(`💰 Earned ${reward.amount} coins!`);
+            break;
+
+          default:
+            setMessage("✅ Scan Successful!");
+        }
+
+        // Update buddy egg
+        const buddyId = localStorage.getItem("buddyEggId");
+        let eggsList = JSON.parse(localStorage.getItem("eggs") || "[]");
+
+        if (buddyId) {
+          eggsList = eggsList.map(egg => {
+            if (egg.id.toString() === buddyId.toString()) {
+              const updatedProgress = (egg.progress || 0) + 1;
+              if (updatedProgress >= egg.hatchScans) {
+                setMessage(`🎉 Your ${egg.rarity} egg hatched!`);
+                localStorage.removeItem("buddyEggId");
+                return null;
+              }
+              return { ...egg, progress: updatedProgress };
+            }
+            return egg;
+          }).filter(Boolean);
+          localStorage.setItem("eggs", JSON.stringify(eggsList));
+          setEggs(eggsList);
+        }
+      } else {
+        setMessage("✅ Scan Successful!");
+      }
+
+      setTimeout(() => setMessage(""), 3000);
+    }
+  };
+{/*
+  const handleSnapshotScan = async () => {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    const context = canvas.getContext("2d");
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    try {
+      const result = await codeReader.current.decodeFromImage(canvas);
+      handleBarcode(result.getText());
+    } catch {
+      setMessage("❌ No barcode detected in snapshot.");
+      setTimeout(() => setMessage(""), 3000);
+    }
+  }; 
+  */}
 
   return (
     <div style={styles.container}>
-      {/* Floating Camera */}
+      {/* 📷 Camera */}
       <div style={styles.cameraWrapper}>
         <video ref={videoRef} style={styles.video} playsInline muted />
+        <canvas ref={canvasRef} style={{ display: "none" }} />
+        <div style={styles.counterRow}>
+          <div style={styles.counterBox}>
+            <span style={styles.counterLabel}>Scans Today:</span>
+            <span style={styles.counterValue}>{scannedToday}</span>
+          </div>
+         {/*  <button style={styles.snapButton} onClick={handleSnapshotScan}>
+            <Camera size={20} weight="bold" style={{ marginRight: 6 }} />
+            Snapshot
+          </button> */}
+        </div>
       </div>
 
-      {/* Scrollable Area Below */}
-      <div style={styles.scrollArea}>
-        <h2 style={styles.title}>Barcode Scanner</h2>
-        {scannedCode && (
-          <div style={styles.infoBox}>
-            <h3>Scan Successful!</h3>
+      {/* 🧠 Title + Message */}
+      <div style={styles.contentArea}>
+        <h2 style={styles.title}>Codex Scanner</h2>
+        {message && (
+          <div style={styles.rewardBox}>
+            <p style={styles.rewardText}>{message}</p>
           </div>
         )}
-        <div style={styles.placeholder}>
-          <p>This is a scrollable area below the camera.</p>
-          <p>Scroll down for more content.</p>
-          <div style={{ height: "1200px" }} />
+      </div>
+
+      {/* 🥚 Buddy Egg */}
+        {buddyEgg && (
+          <div style={styles.eggDisplay}>
+            {buddyEgg.hatchScans - (buddyEgg.progress || 0) <= 10 ? (
+              <EggCrack size={64} color="#fff" />
+            ) : (
+              <Egg size={64} color="#fff" />
+            )}
+            <p style={styles.buddyLabel}>
+              Scans to Hatch: {buddyEgg.progress || 0} / {buddyEgg.hatchScans}
+            </p>
+          </div>
+        )}
+
+
+
+      {/* 📊 Stats Bar */}
+      <div style={styles.statsRow}>
+        <div style={styles.stat} onClick={() => navigate("/egg")}>
+          <Egg size={25} />: {eggs.length}
+        </div>
+        <div style={styles.stat}>
+          <Coin size={25} />: {coins}
+        </div>
+        <div style={styles.stat}>
+          <Barcode size={25} />: {(SCAN_LIMIT + extraScans - scannedToday).toLocaleString()}
+        </div>
+        <div style={styles.stat} onClick={() => navigate("/monsters")}>
+          <Cpu size={25} />: {monsters.length}
         </div>
       </div>
     </div>
@@ -57,7 +252,6 @@ export default function Scanner() {
 
 const styles = {
   container: {
-    position: "relative",
     backgroundColor: "#111",
     minHeight: "100vh",
   },
@@ -66,41 +260,108 @@ const styles = {
     top: 0,
     left: 0,
     width: "100%",
+    height: "240px",
     backgroundColor: "#000",
     zIndex: 1000,
     display: "flex",
-    justifyContent: "center",
+    flexDirection: "column",
     alignItems: "center",
-    height: "220px",
+    paddingTop: "10px",
     borderBottom: "2px solid #333",
   },
   video: {
     width: "90%",
     maxWidth: "480px",
-    height: "200px",
+    height: "160px",
     objectFit: "cover",
     borderRadius: "10px",
     border: "4px solid #ccc",
   },
-  scrollArea: {
-    marginTop: "240px", // Leave space for fixed camera
-    padding: "20px",
-    textAlign: "center",
+  counterRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    width: "90%",
+    marginTop: "10px",
+    alignItems: "center",
+  },
+  counterBox: {
+    color: "#fff",
+    fontSize: "1rem",
+  },
+  counterLabel: {
+    fontWeight: "bold",
+  },
+  counterValue: {
+    marginLeft: "6px",
+    color: "#0f0",
+  },
+  snapButton: {
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
+    padding: "6px 12px",
+    borderRadius: "6px",
+    backgroundColor: "#333",
+    color: "#fff",
+    border: "none",
+    cursor: "pointer",
   },
   title: {
     color: "#fff",
-    marginBottom: "20px",
+    marginTop: "260px",
+    textAlign: "center",
   },
-  infoBox: {
+  rewardBox: {
+    marginTop: "10px",
+    padding: "10px 20px",
     backgroundColor: "#222",
-    color: "#fff",
-    borderRadius: "10px",
-    padding: "15px",
-    margin: "20px auto",
-    maxWidth: "300px",
+    color: "#0f0",
+    borderRadius: "12px",
+    display: "inline-block",
+    fontWeight: "bold",
+    textAlign: "center",
   },
-  placeholder: {
-    color: "#aaa",
+  rewardText: {
+    fontSize: "1.1rem",
+  },
+  contentArea: {
+    paddingTop: "20px",
+    textAlign: "center",
+  },
+  eggDisplay: {
+    position: "fixed",
+    bottom: "60px",
+    left: 0,
+    width: "100%",
+    textAlign: "center",
+    backgroundColor: "#111",
+    padding: "10px 0",
+    borderTop: "1px solid #333",
+    zIndex: 1000,
+  },
+  buddyLabel: {
+    fontWeight: "bold",
+    fontSize: "1.1rem",
+    color: "#fff",
+  },
+  statsRow: {
+    position: "fixed",
+    bottom: 0,
+    width: "100%",
+    backgroundColor: "#111",
+    borderTop: "2px solid #333",
+    padding: "10px 0",
+    display: "flex",
+    justifyContent: "space-around",
+    color: "#fff",
     fontSize: "0.95rem",
+    zIndex: 1000,
+    flexWrap: "wrap",
+  },
+  stat: {
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
+    padding: "0 10px",
   },
 };
