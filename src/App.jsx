@@ -11,11 +11,12 @@ function App() {
         <Route path="/" element={<Login />} />
         <Route path="/scanner" element={<ScannerScreen />} />
         <Route path="/egg" element={<EggPage />} />
+        <Route path="/monsters" element={<MonsterPage />} />
       </Routes>
     </Router>
   );
 }
 
-<Route path="/monsters" element={<MonsterPage />} />
+
 
 export default App;

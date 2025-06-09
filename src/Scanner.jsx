@@ -1,8 +1,10 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { BrowserMultiFormatReader } from "@zxing/browser";
-import { Camera, Egg, Coin, Barcode, EggCrack, Fingerprint, Cpu } from "phosphor-react";
+import { Camera, Egg, Coin, Barcode, EggCrack, Cpu } from "phosphor-react";
 import { getRewardFromBarcode } from "./rewards";
+import MonsterPage from "./Monsters"; 
+
 
 export default function Scanner() {
   const videoRef = useRef(null);
@@ -16,14 +18,13 @@ export default function Scanner() {
   const [eggs, setEggs] = useState(() => JSON.parse(localStorage.getItem("eggs") || "[]"));
   const [extraScans, setExtraScans] = useState(() => parseInt(localStorage.getItem("extraScans") || "0", 10));
   const [buddyEgg, setBuddyEgg] = useState(null);
+  const [canScan, setCanScan] = useState(true);
+  const [monsters, setMonsters] = useState(() => {
+    const stored = localStorage.getItem("monsters");
+    return stored ? JSON.parse(stored) : [];
+  });
 
   const SCAN_LIMIT = 1000;
-
-      
-      const [monsters, setMonsters] = useState(() => {
-        const stored = localStorage.getItem("monsters");
-        return stored ? JSON.parse(stored) : [];
-      });
 
   useEffect(() => {
     const buddyId = localStorage.getItem("buddyEggId");
@@ -51,14 +52,19 @@ export default function Scanner() {
     }
 
     codeReader.current = new BrowserMultiFormatReader();
+
     codeReader.current.decodeFromVideoDevice(
       null,
       videoRef.current,
-      (result) => {
+      (result, err) => {
         if (result) handleBarcode(result.getText());
       },
       {
-        video: { facingMode: "environment" },
+        video: {
+          facingMode: "environment",
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
       }
     );
 
@@ -69,6 +75,10 @@ export default function Scanner() {
   }, [scannedBarcodes]);
 
   const handleBarcode = (code) => {
+    if (!canScan) return;
+      setCanScan(false);
+      setTimeout(() => setCanScan(true), 3000); // 3 seconds cooldown
+
     if (scannedToday >= SCAN_LIMIT + extraScans) {
       setMessage("🚫 Daily scan limit reached.");
       return;
@@ -76,7 +86,6 @@ export default function Scanner() {
 
     if (!scannedBarcodes.has(code)) {
       setScannedBarcodes((prev) => new Set(prev).add(code));
-
       setScannedToday((prev) => {
         const newCount = prev + 1;
         localStorage.setItem("scanCount", newCount.toString());
@@ -88,35 +97,30 @@ export default function Scanner() {
       if (reward) {
         switch (reward.type) {
           case "egg":
-            const newEgg = {
-              id: Date.now(),
-              rarity: reward.rarity,
-              hatchScans: reward.hatchScans || 100,
-              progress: 0,
-              spriteId: null,
-              creatureName: null,
-              basePrompt: reward.prompt || `cute ${reward.rarity} creature`,
-            };
+            (async () => {
+              const rarityCreatureMap = {
+                common: ["001 Void"],
+                uncommon: ["001 VOID"],
+                rare: ["001 Void (Ascended)"],
+              };
 
-            const updatedEggs = [...eggs, newEgg];
-            localStorage.setItem("eggs", JSON.stringify(updatedEggs));
-            setEggs(updatedEggs);
-            setMessage(`🥚 Found a ${reward.rarity} egg!`);
+              const availableCreatures = rarityCreatureMap[reward.rarity] || ["001 Void"];
+              const assignedCreature = availableCreatures[Math.floor(Math.random() * availableCreatures.length)];
 
-            generateCreatureSpriteForEgg(newEgg).then(({ spriteId, creatureName }) => {
-              const updated = updatedEggs.map(e => {
-                if (e.id === newEgg.id) {
-                  return { ...e, spriteId, creatureName };
-                }
-                return e;
-              });
-              localStorage.setItem("eggs", JSON.stringify(updated));
-              setEggs(updated);
-              saveToCreaturePool(spriteId, creatureName, newEgg.basePrompt);
-            });
+              const newEgg = {
+                id: Date.now(),
+                rarity: reward.rarity,
+                hatchScans: reward.hatchScans || 100,
+                progress: 0,
+                assignedCreature,
+              };
 
+              const updatedEggs = [...eggs, newEgg];
+              localStorage.setItem("eggs", JSON.stringify(updatedEggs));
+              setEggs(updatedEggs);
+              setMessage(`🥚 Found a ${reward.rarity} egg!`);
+            })();
             break;
-
 
           case "extraScans":
             setExtraScans(prev => {
@@ -140,7 +144,6 @@ export default function Scanner() {
             setMessage("✅ Scan Successful!");
         }
 
-        // Update buddy egg
         const buddyId = localStorage.getItem("buddyEggId");
         let eggsList = JSON.parse(localStorage.getItem("eggs") || "[]");
 
@@ -148,11 +151,22 @@ export default function Scanner() {
           eggsList = eggsList.map(egg => {
             if (egg.id.toString() === buddyId.toString()) {
               const updatedProgress = (egg.progress || 0) + 1;
-              if (updatedProgress >= egg.hatchScans) {
-                setMessage(`🎉 Your ${egg.rarity} egg hatched!`);
-                localStorage.removeItem("buddyEggId");
-                return null;
-              }
+                if (updatedProgress >= egg.hatchScans) {
+                  setMessage(`🎉 Your ${egg.rarity} egg hatched!`);
+                  localStorage.removeItem("buddyEggId");
+
+                  // ✅ Add the hatched creature to the monster list
+                  const existing = JSON.parse(localStorage.getItem("monsters") || "[]");
+                  const updatedMonsters = [...existing, {
+                    id: Date.now(),
+                    name: egg.assignedCreature,
+                    sprite: egg.assignedCreature,
+                    rarity: egg.rarity,
+                  }];
+                  localStorage.setItem("monsters", JSON.stringify(updatedMonsters));
+
+                  return null;
+                }
               return { ...egg, progress: updatedProgress };
             }
             return egg;
@@ -167,29 +181,9 @@ export default function Scanner() {
       setTimeout(() => setMessage(""), 3000);
     }
   };
-{/*
-  const handleSnapshotScan = async () => {
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    const context = canvas.getContext("2d");
-
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    context.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-    try {
-      const result = await codeReader.current.decodeFromImage(canvas);
-      handleBarcode(result.getText());
-    } catch {
-      setMessage("❌ No barcode detected in snapshot.");
-      setTimeout(() => setMessage(""), 3000);
-    }
-  }; 
-  */}
 
   return (
     <div style={styles.container}>
-      {/* 📷 Camera */}
       <div style={styles.cameraWrapper}>
         <video ref={videoRef} style={styles.video} playsInline muted />
         <canvas ref={canvasRef} style={{ display: "none" }} />
@@ -198,14 +192,9 @@ export default function Scanner() {
             <span style={styles.counterLabel}>Scans Today:</span>
             <span style={styles.counterValue}>{scannedToday}</span>
           </div>
-         {/*  <button style={styles.snapButton} onClick={handleSnapshotScan}>
-            <Camera size={20} weight="bold" style={{ marginRight: 6 }} />
-            Snapshot
-          </button> */}
         </div>
       </div>
 
-      {/* 🧠 Title + Message */}
       <div style={styles.contentArea}>
         <h2 style={styles.title}>Codex Scanner</h2>
         {message && (
@@ -215,23 +204,19 @@ export default function Scanner() {
         )}
       </div>
 
-      {/* 🥚 Buddy Egg */}
-        {buddyEgg && (
-          <div style={styles.eggDisplay}>
-            {buddyEgg.hatchScans - (buddyEgg.progress || 0) <= 10 ? (
-              <EggCrack size={64} color="#fff" />
-            ) : (
-              <Egg size={64} color="#fff" />
-            )}
-            <p style={styles.buddyLabel}>
-              Scans to Hatch: {buddyEgg.progress || 0} / {buddyEgg.hatchScans}
-            </p>
-          </div>
-        )}
+      {buddyEgg && (
+        <div style={styles.eggDisplay}>
+          {buddyEgg.hatchScans - (buddyEgg.progress || 0) <= 10 ? (
+            <EggCrack size={64} color="#fff" />
+          ) : (
+            <Egg size={64} color="#fff" />
+          )}
+          <p style={styles.buddyLabel}>
+            Scans to Hatch: {buddyEgg.progress || 0} / {buddyEgg.hatchScans}
+          </p>
+        </div>
+      )}
 
-
-
-      {/* 📊 Stats Bar */}
       <div style={styles.statsRow}>
         <div style={styles.stat} onClick={() => navigate("/egg")}>
           <Egg size={25} />: {eggs.length}
@@ -251,10 +236,7 @@ export default function Scanner() {
 }
 
 const styles = {
-  container: {
-    backgroundColor: "#111",
-    minHeight: "100vh",
-  },
+  container: { backgroundColor: "#111", minHeight: "100vh" },
   cameraWrapper: {
     position: "fixed",
     top: 0,
@@ -294,17 +276,6 @@ const styles = {
   counterValue: {
     marginLeft: "6px",
     color: "#0f0",
-  },
-  snapButton: {
-    display: "flex",
-    alignItems: "center",
-    gap: "6px",
-    padding: "6px 12px",
-    borderRadius: "6px",
-    backgroundColor: "#333",
-    color: "#fff",
-    border: "none",
-    cursor: "pointer",
   },
   title: {
     color: "#fff",

@@ -1,4 +1,3 @@
-// Monster.jsx
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -21,7 +20,11 @@ export default function MonsterPage() {
         <div style={styles.grid}>
           {monsters.map((m, i) => (
             <div key={i} style={styles.card}>
-              <img src={m.imageUrl} alt="Monster" style={styles.image} />
+              <img
+                src={`Sprites/Codex - The Void Sprites/${m.sprite}.png`}
+                alt={m.name}
+                style={styles.image}
+              />
               <p style={styles.name}>{m.name || `Creature #${i + 1}`}</p>
               <p style={styles.rarity}>{m.rarity}</p>
             </div>
@@ -37,12 +40,18 @@ export default function MonsterPage() {
 }
 
 const styles = {
-  container: {
-    padding: 20,
-    backgroundColor: "#000",
-    minHeight: "100vh",
-    color: "#fff",
-  },
+container: {
+  position: "absolute",
+  top: 0,
+  left: 0,
+  width: "100vw",
+  height: "100vh",
+  backgroundColor: "#000",
+  color: "#fff",
+  padding: 20,
+  overflowY: "auto",
+  boxSizing: "border-box",
+},
   title: {
     textAlign: "center",
     marginBottom: 20,
@@ -53,11 +62,12 @@ const styles = {
     marginTop: 40,
     color: "#aaa",
   },
-  grid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
-    gap: 16,
-  },
+grid: {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
+  gap: 16,
+  width: "100%",
+},
   card: {
     backgroundColor: "#111",
     border: "2px solid #333",
@@ -65,12 +75,12 @@ const styles = {
     padding: 10,
     textAlign: "center",
   },
-  image: {
-    width: "64px",
-    height: "64px",
-    objectFit: "contain",
-    marginBottom: 6,
-  },
+image: {
+  width: "120px",
+  height: "120px",
+  objectFit: "contain",
+  marginBottom: 10,
+},
   name: {
     fontWeight: "bold",
     fontSize: "0.95rem",
