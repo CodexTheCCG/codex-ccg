@@ -77,7 +77,7 @@ export default function Scanner() {
   const handleBarcode = (code) => {
     if (!canScan) return;
       setCanScan(false);
-      setTimeout(() => setCanScan(true), 3000); // 3 seconds cooldown
+      setTimeout(() => setCanScan(true), 5000); // 5 seconds cooldown
 
     if (scannedToday >= SCAN_LIMIT + extraScans) {
       setMessage("🚫 Daily scan limit reached.");
@@ -219,16 +219,16 @@ export default function Scanner() {
 
       <div style={styles.statsRow}>
         <div style={styles.stat} onClick={() => navigate("/egg")}>
-          <Egg size={25} />: {eggs.length}
+          <Egg size={30} />: {eggs.length}
         </div>
         <div style={styles.stat}>
-          <Coin size={25} />: {coins}
+          <Coin size={30} />: {coins}
         </div>
         <div style={styles.stat}>
-          <Barcode size={25} />: {(SCAN_LIMIT + extraScans - scannedToday).toLocaleString()}
+          <Barcode size={30} />: {(SCAN_LIMIT + extraScans - scannedToday).toLocaleString()}
         </div>
         <div style={styles.stat} onClick={() => navigate("/monsters")}>
-          <Cpu size={25} />: {monsters.length}
+          <Cpu size={30} />: {monsters.length}
         </div>
       </div>
     </div>
@@ -317,7 +317,7 @@ const styles = {
   },
   statsRow: {
     position: "fixed",
-    bottom: 0,
+    bottom: 20,
     width: "100%",
     backgroundColor: "#111",
     borderTop: "2px solid #333",
