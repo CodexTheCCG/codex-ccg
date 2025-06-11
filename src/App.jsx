@@ -3,6 +3,7 @@ import Login from "./Login";
 import ScannerScreen from "./ScannerScreen";
 import EggPage from "./Egg";
 import MonsterPage from "./Monsters";
+import Store from "./Store";
 
 function App() {
   return (
@@ -12,6 +13,7 @@ function App() {
         <Route path="/scanner" element={<ScannerScreen />} />
         <Route path="/egg" element={<EggPage />} />
         <Route path="/monsters" element={<MonsterPage />} />
+        <Route path="/store" element={<Store />} />
       </Routes>
     </Router>
   );

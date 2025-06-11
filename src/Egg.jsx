@@ -19,7 +19,7 @@ export default function EggPage() {
         id: egg.id || `${Date.now()}-${i}-${Math.random().toString(36).substr(2, 5)}`
       }));
 
-      const rarityOrder = { rare: 0, uncommon: 1, common: 2 };
+      const rarityOrder = { "hyper rare": 0, rare: 1, uncommon: 2, common: 3 };
       eggsWithIds.sort((a, b) => rarityOrder[a.rarity] - rarityOrder[b.rarity]);
 
       setEggs(eggsWithIds);
@@ -124,9 +124,10 @@ export default function EggPage() {
 }
 
 function getRarityColor(rarity) {
-  if (rarity === "rare") return "#ff69b4";
-  if (rarity === "uncommon") return "#87cefa";
-  return "#ccc";
+  if (rarity === "hyper rare") return "#ffd700"; // gold
+  if (rarity === "rare") return "#ff69b4";       // pink
+  if (rarity === "uncommon") return "#87cefa";   // light blue
+  return "#ccc";                                 // gray for common
 }
 
 const styles = {

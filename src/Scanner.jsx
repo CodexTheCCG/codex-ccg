@@ -24,7 +24,7 @@ export default function Scanner() {
     return stored ? JSON.parse(stored) : [];
   });
 
-  const SCAN_LIMIT = 1000;
+  const SCAN_LIMIT = 25;
 
   useEffect(() => {
     const buddyId = localStorage.getItem("buddyEggId");
@@ -94,89 +94,102 @@ export default function Scanner() {
 
       const reward = getRewardFromBarcode(code);
 
-      if (reward) {
-        switch (reward.type) {
-          case "egg":
-            (async () => {
-              const rarityCreatureMap = {
-                common: ["001 Void"],
-                uncommon: ["001 VOID"],
-                rare: ["001 Void (Ascended)"],
-              };
+if (reward) {
+  switch (reward.type) {
+    case "egg":
+      (async () => {
+        const rarityCreatureMap = {
+          common: ["003 Orren"],
+          uncommon: ["002 Abyssling"],
+          rare: ["001 Void"],
+          hyper_rare: [
+            "001 Void (Ascended)",
+            "002 Abyssling (Ascended)",
+            "003 Orren (Ascended)"
+          ]
+ // ✅ Add more as needed
+        };
 
-              const availableCreatures = rarityCreatureMap[reward.rarity] || ["001 Void"];
-              const assignedCreature = availableCreatures[Math.floor(Math.random() * availableCreatures.length)];
+        const availableCreatures = rarityCreatureMap[reward.rarity] || ["001 Void"];
+        const assignedCreature = availableCreatures[Math.floor(Math.random() * availableCreatures.length)];
 
-              const newEgg = {
-                id: Date.now(),
-                rarity: reward.rarity,
-                hatchScans: reward.hatchScans || 100,
-                progress: 0,
-                assignedCreature,
-              };
+        const defaultHatchScans = {
+          common: 100,
+          uncommon: 150,
+          rare: 250,
+          hyper_rare: 500
+        };
 
-              const updatedEggs = [...eggs, newEgg];
-              localStorage.setItem("eggs", JSON.stringify(updatedEggs));
-              setEggs(updatedEggs);
-              setMessage(`🥚 Found a ${reward.rarity} egg!`);
-            })();
-            break;
+        const newEgg = {
+          id: Date.now(),
+          rarity: reward.rarity,
+          hatchScans: reward.hatchScans || defaultHatchScans[reward.rarity] || 100,
+          progress: 0,
+          assignedCreature
+        };
 
-          case "extraScans":
-            setExtraScans(prev => {
-              const updated = prev + reward.amount;
-              localStorage.setItem("extraScans", updated.toString());
-              return updated;
-            });
-            setMessage(`➕ Earned ${reward.amount} extra scan(s)!`);
-            break;
+        const updatedEggs = [...eggs, newEgg];
+        localStorage.setItem("eggs", JSON.stringify(updatedEggs));
+        setEggs(updatedEggs);
+        setMessage(`🥚 Found a ${reward.rarity.replace("_", " ")} egg!`);
+      })();
+      break;
 
-          case "currency":
-            setCoins(prev => {
-              const updated = prev + reward.amount;
-              localStorage.setItem("coins", updated.toString());
-              return updated;
-            });
-            setMessage(`💰 Earned ${reward.amount} coins!`);
-            break;
+    case "extraScans":
+      setExtraScans(prev => {
+        const updated = prev + reward.amount;
+        localStorage.setItem("extraScans", updated.toString());
+        return updated;
+      });
+      setMessage(`➕ Earned ${reward.amount} extra scan(s)!`);
+      break;
 
-          default:
-            setMessage("✅ Scan Successful!");
+    case "currency":
+      setCoins(prev => {
+        const updated = prev + reward.amount;
+        localStorage.setItem("coins", updated.toString());
+        return updated;
+      });
+      setMessage(`💰 Earned ${reward.amount.toLocaleString()} coins!`);
+      break;
+
+    default:
+      setMessage("✅ Scan Successful!");
+  }
+
+  const buddyId = localStorage.getItem("buddyEggId");
+  let eggsList = JSON.parse(localStorage.getItem("eggs") || "[]");
+
+  if (buddyId) {
+    eggsList = eggsList.map(egg => {
+      if (egg.id.toString() === buddyId.toString()) {
+        const updatedProgress = (egg.progress || 0) + 1;
+        if (updatedProgress >= egg.hatchScans) {
+          setMessage(`🎉 Your ${egg.rarity.replace("_", " ")} egg hatched!`);
+          localStorage.removeItem("buddyEggId");
+
+          const existing = JSON.parse(localStorage.getItem("monsters") || "[]");
+          const updatedMonsters = [...existing, {
+            id: Date.now(),
+            name: egg.assignedCreature,
+            sprite: egg.assignedCreature,
+            rarity: egg.rarity
+          }];
+          localStorage.setItem("monsters", JSON.stringify(updatedMonsters));
+
+          return null;
         }
-
-        const buddyId = localStorage.getItem("buddyEggId");
-        let eggsList = JSON.parse(localStorage.getItem("eggs") || "[]");
-
-        if (buddyId) {
-          eggsList = eggsList.map(egg => {
-            if (egg.id.toString() === buddyId.toString()) {
-              const updatedProgress = (egg.progress || 0) + 1;
-                if (updatedProgress >= egg.hatchScans) {
-                  setMessage(`🎉 Your ${egg.rarity} egg hatched!`);
-                  localStorage.removeItem("buddyEggId");
-
-                  // ✅ Add the hatched creature to the monster list
-                  const existing = JSON.parse(localStorage.getItem("monsters") || "[]");
-                  const updatedMonsters = [...existing, {
-                    id: Date.now(),
-                    name: egg.assignedCreature,
-                    sprite: egg.assignedCreature,
-                    rarity: egg.rarity,
-                  }];
-                  localStorage.setItem("monsters", JSON.stringify(updatedMonsters));
-
-                  return null;
-                }
-              return { ...egg, progress: updatedProgress };
-            }
-            return egg;
-          }).filter(Boolean);
-          localStorage.setItem("eggs", JSON.stringify(eggsList));
-          setEggs(eggsList);
-        }
-      } else {
-        setMessage("✅ Scan Successful!");
+        return { ...egg, progress: updatedProgress };
       }
+      return egg;
+    }).filter(Boolean);
+    localStorage.setItem("eggs", JSON.stringify(eggsList));
+    setEggs(eggsList);
+  }
+} else {
+  setMessage("✅ Scan Successful!");
+}
+
 
       setTimeout(() => setMessage(""), 3000);
     }
@@ -221,7 +234,7 @@ export default function Scanner() {
         <div style={styles.stat} onClick={() => navigate("/egg")}>
           <Egg size={30} />: {eggs.length}
         </div>
-        <div style={styles.stat}>
+        <div style={styles.stat} onClick={() => navigate("/store")}>
           <Coin size={30} />: {coins}
         </div>
         <div style={styles.stat}>

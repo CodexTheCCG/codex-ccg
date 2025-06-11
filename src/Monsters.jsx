@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { XCircle } from "phosphor-react";
 
 export default function MonsterPage() {
   const [monsters, setMonsters] = useState([]);
@@ -10,6 +11,14 @@ export default function MonsterPage() {
     setMonsters(stored);
   }, []);
 
+  const handleDelete = (id) => {
+    if (window.confirm("Are you sure you want to release this monster?")) {
+      const updated = monsters.filter((m) => m.id !== id);
+      setMonsters(updated);
+      localStorage.setItem("monsters", JSON.stringify(updated));
+    }
+  };
+
   return (
     <div style={styles.container}>
       <h2 style={styles.title}>Your Monsters</h2>
@@ -19,7 +28,15 @@ export default function MonsterPage() {
       ) : (
         <div style={styles.grid}>
           {monsters.map((m, i) => (
-            <div key={i} style={styles.card}>
+            <div key={m.id || i} style={styles.card}>
+              {/* Delete Button */}
+              <button
+                onClick={() => handleDelete(m.id)}
+                style={styles.deleteBtn}
+              >
+                <XCircle size={20} color="#f87171" weight="fill" />
+              </button>
+
               <img
                 src={`Sprites/Codex - The Void Sprites/${m.sprite}.png`}
                 alt={m.name}
@@ -40,18 +57,18 @@ export default function MonsterPage() {
 }
 
 const styles = {
-container: {
-  position: "absolute",
-  top: 0,
-  left: 0,
-  width: "100vw",
-  height: "100vh",
-  backgroundColor: "#000",
-  color: "#fff",
-  padding: 20,
-  overflowY: "auto",
-  boxSizing: "border-box",
-},
+  container: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    width: "100vw",
+    height: "100vh",
+    backgroundColor: "#000",
+    color: "#fff",
+    padding: 20,
+    overflowY: "auto",
+    boxSizing: "border-box",
+  },
   title: {
     textAlign: "center",
     marginBottom: 20,
@@ -62,25 +79,35 @@ container: {
     marginTop: 40,
     color: "#aaa",
   },
-grid: {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
-  gap: 16,
-  width: "100%",
-},
+  grid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
+    gap: 16,
+    width: "100%",
+  },
   card: {
     backgroundColor: "#111",
     border: "2px solid #333",
     borderRadius: 10,
     padding: 10,
     textAlign: "center",
+    position: "relative",
   },
-image: {
-  width: "120px",
-  height: "120px",
-  objectFit: "contain",
-  marginBottom: 10,
-},
+  deleteBtn: {
+    position: "absolute",
+    top: 6,
+    right: 6,
+    background: "none",
+    border: "none",
+    padding: 0,
+    cursor: "pointer",
+  },
+  image: {
+    width: "120px",
+    height: "120px",
+    objectFit: "contain",
+    marginBottom: 10,
+  },
   name: {
     fontWeight: "bold",
     fontSize: "0.95rem",
