@@ -19,6 +19,25 @@ export default function MonsterPage() {
     }
   };
 
+  const getGroupedMonsters = () => {
+    const groups = {};
+
+    monsters.forEach((m) => {
+      const key = `${m.sprite}|${m.name}`;
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(m);
+    });
+
+    return Object.entries(groups).map(([key, group]) => ({
+      id: group[0].id,
+      sprite: group[0].sprite,
+      name: group[0].name,
+      count: group.length,
+    }));
+  };
+
+  const grouped = getGroupedMonsters();
+
   return (
     <div style={styles.container}>
       <h2 style={styles.title}>Your Monsters</h2>
@@ -27,8 +46,13 @@ export default function MonsterPage() {
         <p style={styles.text}>You haven't hatched any monsters yet!</p>
       ) : (
         <div style={styles.grid}>
-          {monsters.map((m, i) => (
+          {grouped.map((m, i) => (
             <div key={m.id || i} style={styles.card}>
+              {/* Count badge */}
+              {m.count > 1 && (
+                <div style={styles.countBadge}>x{m.count}</div>
+              )}
+
               {/* Delete Button */}
               <button
                 onClick={() => handleDelete(m.id)}
@@ -43,7 +67,6 @@ export default function MonsterPage() {
                 style={styles.image}
               />
               <p style={styles.name}>{m.name || `Creature #${i + 1}`}</p>
-              <p style={styles.rarity}>{m.rarity}</p>
             </div>
           ))}
         </div>
@@ -93,15 +116,6 @@ const styles = {
     textAlign: "center",
     position: "relative",
   },
-  deleteBtn: {
-    position: "absolute",
-    top: 6,
-    right: 6,
-    background: "none",
-    border: "none",
-    padding: 0,
-    cursor: "pointer",
-  },
   image: {
     width: "120px",
     height: "120px",
@@ -112,9 +126,26 @@ const styles = {
     fontWeight: "bold",
     fontSize: "0.95rem",
   },
-  rarity: {
-    fontSize: "0.85rem",
-    color: "#aaa",
+  deleteBtn: {
+    position: "absolute",
+    top: 6,
+    right: 6,
+    background: "none",
+    border: "none",
+    padding: 0,
+    cursor: "pointer",
+  },
+  countBadge: {
+    position: "absolute",
+    top: 6,
+    left: 6,
+    backgroundColor: "#0af",
+    color: "#000",
+    fontWeight: "bold",
+    borderRadius: 6,
+    fontSize: "0.75rem",
+    padding: "2px 6px",
+    zIndex: 10,
   },
   back: {
     marginTop: 30,

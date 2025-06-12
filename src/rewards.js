@@ -1,15 +1,13 @@
 export function getRewardFromBarcode(barcode) {
   const roll = Math.random();
 
-  if (roll < 0.0001111) return { type: "egg", rarity: "hyper rare", hatchScans: 250 };
-  if (roll < 0.0101111) return { type: "egg", rarity: "rare", hatchScans: 100 };
-  if (roll < 0.0301111) return { type: "egg", rarity: "uncommon", hatchScans: 40 };
-  if (roll < 0.0701111) return { type: "egg", rarity: "common", hatchScans: 15 };
+  // 🥚 About 7% chance to get an egg (with small chance of ascended later)
+  if (roll < 0.10) return { type: "egg", hatchScans: 15 };
 
-  // Remaining ~92.99% of rewards
-  if (roll < 0.1701111) return { type: "currency", amount: 100 };     // 10%
-  if (roll < 0.3201111) return { type: "extraScans", amount: 5 };     // 15%
-  if (roll < 0.4201111) return { type: "currency", amount: 10 };      // 10%
-  if (roll < 0.6701111) return { type: "extraScans", amount: 2 };     // 25%
-  return { type: "currency", amount: 5 };                              // ~33%
+  // 💰📈 Other rewards (~93%)
+  if (roll < 0.17) return { type: "currency", amount: 100 };     // 10%
+  if (roll < 0.42) return { type: "currency", amount: 5 };      // 10%
+  if (roll < 0.32) return { type: "extraScans", amount: 2 };     // 15%
+  if (roll < 0.67) return { type: "extraScans", amount: 1 };     // 25%
+  return { type: "currency", amount: 1 };                        // ~33%
 }

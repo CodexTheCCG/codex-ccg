@@ -19,9 +19,6 @@ export default function EggPage() {
         id: egg.id || `${Date.now()}-${i}-${Math.random().toString(36).substr(2, 5)}`
       }));
 
-      const rarityOrder = { "hyper rare": 0, rare: 1, uncommon: 2, common: 3 };
-      eggsWithIds.sort((a, b) => rarityOrder[a.rarity] - rarityOrder[b.rarity]);
-
       setEggs(eggsWithIds);
       localStorage.setItem("eggs", JSON.stringify(eggsWithIds));
     }
@@ -75,7 +72,7 @@ export default function EggPage() {
                 key={egg.id}
                 style={{
                   ...styles.eggCard,
-                  borderColor: getRarityColor(egg.rarity),
+                  borderColor: "#ffffff",
                 }}
                 onClick={() => handleEggClick(index)}
               >
@@ -95,7 +92,7 @@ export default function EggPage() {
                     color: isBuddy ? "#0f0" : "#fff",
                   }}
                 >
-                  {egg.rarity.toUpperCase()}
+                  EGG
                 </p>
                 <p style={styles.eggDetail}>
                   Scans: {egg.progress || 0} / {egg.hatchScans}
@@ -121,13 +118,6 @@ export default function EggPage() {
       </button>
     </div>
   );
-}
-
-function getRarityColor(rarity) {
-  if (rarity === "hyper rare") return "#ffd700"; // gold
-  if (rarity === "rare") return "#ff69b4";       // pink
-  if (rarity === "uncommon") return "#87cefa";   // light blue
-  return "#ccc";                                 // gray for common
 }
 
 const styles = {

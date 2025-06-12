@@ -7,40 +7,17 @@ import { useNavigate } from "react-router-dom";
 
 const storeItems = [
   {
-    id: "egg_common",
-    name: "Common Egg",
+    id: "egg_basic",
+    name: "Egg",
     price: 1000,
     type: "egg",
-    rarity: "common",
-    icon: <Egg size={32} color="#cccccc" /> // gray
+    icon: <Egg size={32} color="#ffffff" /> // white/default color
   },
-  {
-    id: "egg_uncommon",
-    name: "Uncommon Egg",
-    price: 3000,
-    type: "egg",
-    rarity: "uncommon",
-    icon: <Egg size={32} color="#87cefa" /> // blue
-  },
-  {
-    id: "egg_rare",
-    name: "Rare Egg",
-    price: 10000,
-    type: "egg",
-    rarity: "rare",
-    icon: <Egg size={32} color="#ff69b4" /> // pink
-  },
-  {
-    id: "egg_hyperrare",
-    name: "Hyper Rare Egg",
-    price: 100000,
-    type: "egg",
-    rarity: "hyper_rare",
-    icon: <Egg size={32} color="#ffd700" /> // gold/yellow
-  },
-  { id: "extra_scans", name: "Extra Scans (+5)", price: 250, type: "scan", amount: 5, icon: <Barcode size={32} /> },
-  { id: "extra_scans", name: "Extra Scans (+10)", price: 450, type: "scan", amount: 10, icon: <Barcode size={32} /> },
+  { id: "extra_scans_5", name: "Extra Scans (+5)", price: 150, type: "scan", amount: 5, icon: <Barcode size={32} /> },
+  { id: "extra_scans_15", name: "Extra Scans (+15)", price: 500, type: "scan", amount: 15, icon: <Barcode size={32} /> },
+    { id: "extra_scans_50", name: "Extra Scans (+50)", price: 2050, type: "scan", amount: 50, icon: <Barcode size={32} /> },
 ];
+
 
 export default function Store() {
   const [coins, setCoins] = useState(0);
@@ -63,19 +40,16 @@ export default function Store() {
     setCoins(newCoins);
     localStorage.setItem("coins", newCoins.toString());
 
-    if (item.type === "egg") {
-      const existingEggs = JSON.parse(localStorage.getItem("eggs") || "[]");
-      const newEgg = {
-        id: `${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-        rarity: item.rarity,
-        hatchScans: item.rarity === "hyper_rare" ? 500 : item.rarity === "rare" ? 250 : 100,
-        progress: 0,
-        spriteId: null,
-        creatureName: null,
-        basePrompt: `cute ${item.rarity} creature`,
-      };
-      localStorage.setItem("eggs", JSON.stringify([...existingEggs, newEgg]));
-    } else if (item.type === "scan") {
+if (item.type === "egg") {
+  const existingEggs = JSON.parse(localStorage.getItem("eggs") || "[]");
+  const newEgg = {
+    id: `${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+    hatchScans: 100,
+    progress: 0,
+    assignedCreature: null // Creature is assigned later in Scanner
+  };
+  localStorage.setItem("eggs", JSON.stringify([...existingEggs, newEgg]));
+} else if (item.type === "scan") {
       const current = parseInt(localStorage.getItem("extraScans") || "0", 10);
       const updated = current + item.amount;
       localStorage.setItem("extraScans", updated.toString());
@@ -158,8 +132,8 @@ export default function Store() {
       </div>
 
       <div style={{ textAlign: "center", marginBottom: 20, color: "#fff" }}>
-        <h1 style={{ fontSize: 36, marginBottom: 8, display: "flex", justifyContent: "center", alignItems: "center", gap: 12 }}>
-          <ShoppingCart size={36} /> Store
+        <h1 style={{ fontSize: 40, marginBottom: 8, display: "flex", justifyContent: "center", alignItems: "center", gap: 12 }}>
+          <ShoppingCart size={40} /> Store
         </h1>
         <p style={{ fontSize: 18 }}>
           You have: <strong><Coin size={20} /> {coins}</strong>
