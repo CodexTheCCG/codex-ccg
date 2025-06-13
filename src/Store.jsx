@@ -112,7 +112,13 @@ if (item.type === "egg") {
   };
 
   return (
-    <div style={{ padding: "30px 20px", maxWidth: "600px", margin: "0 auto", background: "#121212", minHeight: "100vh" }}>
+    <div style={{ 
+      padding: "30px 20px", 
+      width: "100vw", 
+      minHeight: "100vh", 
+      background: "#121212", 
+      overflowX: "hidden" 
+     }}> 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
         <button
           onClick={() => navigate("/scanner")}

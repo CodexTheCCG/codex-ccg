@@ -13,9 +13,9 @@ const openai = new OpenAIApi(configuration);
 
 // POST /generate-sprite
 app.post('/generate-sprite', async (req, res) => {
-  const { scannedItem, rarity } = req.body;
+const { scannedItem } = req.body;
 
-  const prompt = `pixel art sprite of a ${rarity} fantasy creature inspired by a ${scannedItem}. 64x64, transparent background`;
+const prompt = `pixel art sprite of a fantasy creature inspired by a ${scannedItem}. 64x64, transparent background`;
 
   try {
     const imageResponse = await openai.createImage({

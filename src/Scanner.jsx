@@ -6,6 +6,7 @@ import { getRewardFromBarcode } from "./rewards";
 import MonsterPage from "./Monsters"; 
 
 
+
 export default function Scanner() {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -23,6 +24,10 @@ export default function Scanner() {
     const stored = localStorage.getItem("monsters");
     return stored ? JSON.parse(stored) : [];
   });
+  const [creatorMode, setCreatorMode] = useState(false);
+  const [generatedCreature, setGeneratedCreature] = useState(null);
+
+
 
   const SCAN_LIMIT = 25;
 
@@ -74,7 +79,54 @@ export default function Scanner() {
     };
   }, [scannedBarcodes]);
 
+const startCodexCreate = async (barcode) => {
+  try {
+    const nameResponse = await openai.chat.completions.create({
+      messages: [
+        { role: "system", content: "You are a creature creator for a barcode-scanning monster game." },
+        { role: "user", content: `I scanned an item with barcode ${barcode}. What should the monster be named?` }
+      ],
+      model: "gpt-4",
+    });
+
+    const creatureName = nameResponse.choices[0].message.content.trim();
+
+    const normalSprite = await generateImage(`pixel art monster named ${creatureName}, full body, cute but mysterious`);
+    const shinySprite = await generateImage(`shiny version of pixel art monster named ${creatureName}, gold and glowing, full body`);
+
+    setGeneratedCreature({
+      name: creatureName,
+      normalSprite,
+      shinySprite,
+      codeUsed: barcode,
+    });
+
+  } catch (err) {
+    console.error("Error generating Codex creature:", err);
+    setMessage("❌ Failed to create monster. Try again.");
+  }
+};
+
+const generateImage = async (prompt) => {
+  const imageResp = await openai.images.generate({
+    model: "dall-e-3",
+    prompt,
+    size: "1024x1024",
+    n: 1,
+    response_format: "url",
+  });
+
+  return imageResp.data[0].url;
+};
+
+
   const handleBarcode = (code) => {
+    if (creatorMode) {
+  // override scanning to go to Codex Create flow
+  startCodexCreate(code);
+  return;
+}
+
     if (!canScan) return;
       setCanScan(false);
       setTimeout(() => setCanScan(true), 5000); // 5 seconds cooldown
@@ -96,44 +148,34 @@ export default function Scanner() {
 
 if (reward) {
   switch (reward.type) {
-    case "egg":
-      (async () => {
-        const rarityCreatureMap = {
-          common: ["003 Orren"],
-          uncommon: ["002 Abyssling"],
-          rare: ["001 Void"],
-          hyper_rare: [
-            "001 Void (Ascended)",
-            "002 Abyssling (Ascended)",
-            "003 Orren (Ascended)"
-          ]
- // ✅ Add more as needed
-        };
+case "egg":
+  (async () => {
+    const allCreatures = [
+      { name: "001 Void", ascended: "001 Void (Ascended)" },
+      { name: "002 Abyssling", ascended: "002 Abyssling (Ascended)" },
+      { name: "003 Orren", ascended: "003 Orren (Ascended)" },
+    ];
 
-        const availableCreatures = rarityCreatureMap[reward.rarity] || ["001 Void"];
-        const assignedCreature = availableCreatures[Math.floor(Math.random() * availableCreatures.length)];
+    const selected = allCreatures[Math.floor(Math.random() * allCreatures.length)];
+    const isAscended = Math.floor(Math.random() * 8193) === 0;
+    const assignedCreature = isAscended ? selected.ascended : selected.name;
 
-        const defaultHatchScans = {
-          common: 100,
-          uncommon: 150,
-          rare: 250,
-          hyper_rare: 500
-        };
+    const newEgg = {
+      id: Date.now(),
+      hatchScans: 100,
+      progress: 0,
+      assignedCreature,
+      isAscended,
+    };
 
-        const newEgg = {
-          id: Date.now(),
-          rarity: reward.rarity,
-          hatchScans: reward.hatchScans || defaultHatchScans[reward.rarity] || 100,
-          progress: 0,
-          assignedCreature
-        };
+    const updatedEggs = [...eggs, newEgg];
+    localStorage.setItem("eggs", JSON.stringify(updatedEggs));
+    setEggs(updatedEggs);
+    setMessage(isAscended ? `✨ You found a Shiny Egg!` : `🥚 You received an Egg!`);
+  })();
 
-        const updatedEggs = [...eggs, newEgg];
-        localStorage.setItem("eggs", JSON.stringify(updatedEggs));
-        setEggs(updatedEggs);
-        setMessage(`🥚 Found a ${reward.rarity.replace("_", " ")} egg!`);
-      })();
-      break;
+        break;
+
 
     case "extraScans":
       setExtraScans(prev => {
@@ -164,21 +206,24 @@ if (reward) {
     eggsList = eggsList.map(egg => {
       if (egg.id.toString() === buddyId.toString()) {
         const updatedProgress = (egg.progress || 0) + 1;
-        if (updatedProgress >= egg.hatchScans) {
-          setMessage(`🎉 Your ${egg.rarity.replace("_", " ")} egg hatched!`);
-          localStorage.removeItem("buddyEggId");
+          if (updatedProgress >= egg.hatchScans) {
+            setMessage("🎉 Your egg hatched!");
+            localStorage.removeItem("buddyEggId");
 
-          const existing = JSON.parse(localStorage.getItem("monsters") || "[]");
-          const updatedMonsters = [...existing, {
-            id: Date.now(),
-            name: egg.assignedCreature,
-            sprite: egg.assignedCreature,
-            rarity: egg.rarity
-          }];
-          localStorage.setItem("monsters", JSON.stringify(updatedMonsters));
+            const isShiny = Math.floor(Math.random() * 8193) === 0;
 
-          return null;
-        }
+            const existing = JSON.parse(localStorage.getItem("monsters") || "[]");
+            const updatedMonsters = [...existing, {
+              id: Date.now(),
+              name: egg.assignedCreature + (isShiny ? " (Ascended)" : ""),
+              sprite: egg.assignedCreature + (isShiny ? " (Ascended)" : ""),
+              shiny: isShiny
+            }];
+            localStorage.setItem("monsters", JSON.stringify(updatedMonsters));
+
+            return null;
+          }
+
         return { ...egg, progress: updatedProgress };
       }
       return egg;
@@ -201,11 +246,35 @@ if (reward) {
         <video ref={videoRef} style={styles.video} playsInline muted />
         <canvas ref={canvasRef} style={{ display: "none" }} />
         <div style={styles.counterRow}>
-          <div style={styles.counterBox}>
-            <span style={styles.counterLabel}>Scans Today:</span>
-            <span style={styles.counterValue}>{scannedToday}</span>
-          </div>
-        </div>
+  <div style={styles.counterBox}>
+    <span style={styles.counterLabel}>Scans Today:</span>
+    <span style={styles.counterValue}>{scannedToday}</span>
+  </div>
+<div style={styles.creatorToggleContainer}>
+  <div
+    style={styles.toggleWrapper}
+    onClick={() => {
+      const goingToCreator = location.pathname !== "/creator";
+      navigate(goingToCreator ? "/creator" : "/scanner");
+    }}
+  >
+    <div
+      style={{
+        ...styles.toggleSlider,
+        transform: location.pathname === "/creator" ? "translateX(26px)" : "translateX(0px)",
+      }}
+    />
+  </div>
+  <span style={styles.toggleLabel}>
+    {location.pathname === "/creator" ? "Creator Mode: ON" : "Creator Mode: OFF"}
+  </span>
+</div>
+
+
+
+
+
+</div>
       </div>
 
       <div style={styles.contentArea}>
@@ -244,6 +313,28 @@ if (reward) {
           <Cpu size={30} />: {monsters.length}
         </div>
       </div>
+
+      {generatedCreature && (
+  <div style={{ textAlign: "center", marginTop: 20 }}>
+    <h3>🧬 Your Created Creature</h3>
+    <p style={{ fontSize: "1.2rem", fontWeight: "bold" }}>{generatedCreature.name}</p>
+    <div style={{ display: "flex", justifyContent: "center", gap: 20, marginTop: 10 }}>
+      <div>
+        <p>Normal</p>
+        <img src={generatedCreature.normalSprite} alt="Normal Sprite" width="120" />
+      </div>
+      <div>
+        <p>Shiny</p>
+        <img src={generatedCreature.shinySprite} alt="Shiny Sprite" width="120" />
+      </div>
+    </div>
+    <div style={{ marginTop: 10 }}>
+      <button onClick={() => setGeneratedCreature(null)}>🔁 Reroll</button>
+      <button onClick={() => alert("✅ TODO: Save to DB")}>✅ Accept & Save</button>
+    </div>
+  </div>
+)}
+
     </div>
   );
 }
@@ -348,4 +439,41 @@ const styles = {
     gap: "6px",
     padding: "0 10px",
   },
+toggleWrapper: {
+  width: 50,
+  height: 26,
+  backgroundColor: "#333",
+  borderRadius: 13,
+  padding: 2,
+  cursor: "pointer",
+  position: "relative",
+  transition: "background-color 0.3s ease",
+},
+toggleSlider: {
+  width: 22,
+  height: 22,
+  backgroundColor: "#0ff",
+  borderRadius: "50%",
+  position: "absolute",
+  top: 2,
+  left: 2,
+  transition: "transform 0.25s ease",
+},
+creatorToggleContainer: {
+  display: "flex",
+  flexDirection: "column",      // forces the label to go below the toggle
+  alignItems: "flex-end",       // aligns both toggle & label to the right
+  gap: 4,
+  marginLeft: "auto",
+  marginRight: 10,              // push off right edge a bit
+},
+toggleLabel: {
+  color: "#fff",
+  fontWeight: "bold",
+  fontSize: "0.75rem",
+  textAlign: "right",
+  marginTop: 6,
+},
+
+
 };
