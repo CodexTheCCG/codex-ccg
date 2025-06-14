@@ -4,6 +4,7 @@ import { BrowserMultiFormatReader } from "@zxing/browser";
 import { Camera, Egg, Coin, Barcode, EggCrack, Cpu } from "phosphor-react";
 import { getRewardFromBarcode } from "./rewards";
 import MonsterPage from "./Monsters"; 
+import { handleBarcodeScan } from './utils/handleBarcodeScan';
 
 
 
@@ -120,7 +121,7 @@ const generateImage = async (prompt) => {
 };
 
 
-  const handleBarcode = (code) => {
+  const handleBarcode = async (code) => {
     if (creatorMode) {
   // override scanning to go to Codex Create flow
   startCodexCreate(code);
@@ -137,12 +138,29 @@ const generateImage = async (prompt) => {
     }
 
     if (!scannedBarcodes.has(code)) {
+      const creatureRef = doc(db, "codex_creatures", code);
+      const creatureSnap = await getDoc(creatureRef);
+      if (creatureSnap.exists()) {
+        const data = creatureSnap.data();
+        const existing = JSON.parse(localStorage.getItem("monsters") || "[]");
+        const updatedMonsters = [...existing, {
+          id: Date.now(),
+          name: data.name,
+          sprite: data.normalSprite,
+          shiny: false,
+        }];
+        localStorage.setItem("monsters", JSON.stringify(updatedMonsters));
+        setMonsters(updatedMonsters);
+        setMessage(`🧬 You unlocked ${data.name}!`);
+        return;
+      }
       setScannedBarcodes((prev) => new Set(prev).add(code));
       setScannedToday((prev) => {
         const newCount = prev + 1;
         localStorage.setItem("scanCount", newCount.toString());
         return newCount;
       });
+
 
       const reward = getRewardFromBarcode(code);
 
@@ -330,7 +348,11 @@ case "egg":
     </div>
     <div style={{ marginTop: 10 }}>
       <button onClick={() => setGeneratedCreature(null)}>🔁 Reroll</button>
-      <button onClick={() => alert("✅ TODO: Save to DB")}>✅ Accept & Save</button>
+      <button onClick={async () => {
+        await saveGeneratedCreatureToFirebase(user.uid, generatedCreature.codeUsed, generatedCreature);
+        alert("✅ Saved to Codex!");
+        setGeneratedCreature(null);
+      }}>✅ Accept & Save</button>
     </div>
   </div>
 )}

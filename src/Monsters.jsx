@@ -1,74 +1,73 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { XCircle } from "phosphor-react";
+import { db } from "./firebase";
+import { collection, getDocs } from "firebase/firestore";
 
 export default function MonsterPage() {
-  const [monsters, setMonsters] = useState([]);
+  const [allMonsters, setAllMonsters] = useState([]);
+  const [unlocked, setUnlocked] = useState([]);
   const navigate = useNavigate();
 
   useEffect(() => {
-    const stored = JSON.parse(localStorage.getItem("monsters") || "[]");
-    setMonsters(stored);
+    const fetchMonsters = async () => {
+      const snap = await getDocs(collection(db, "codex_creatures"));
+      const known = snap.docs.map(doc => doc.data());
+      setAllMonsters(known);
+
+      const stored = JSON.parse(localStorage.getItem("monsters") || "[]");
+      setUnlocked(stored);
+    };
+
+    fetchMonsters();
   }, []);
 
-  const handleDelete = (id) => {
-    if (window.confirm("Are you sure you want to release this monster?")) {
-      const updated = monsters.filter((m) => m.id !== id);
-      setMonsters(updated);
+  const isUnlocked = (barcode) => {
+    return unlocked.some(m => m.barcode === barcode || m.codeUsed === barcode);
+  };
+
+  const getCount = (barcode) => {
+    return unlocked.filter(m => m.barcode === barcode || m.codeUsed === barcode).length;
+  };
+
+  const handleDelete = (barcode) => {
+    if (window.confirm("Are you sure you want to release all copies of this monster?")) {
+      const updated = unlocked.filter(m => m.barcode !== barcode && m.codeUsed !== barcode);
+      setUnlocked(updated);
       localStorage.setItem("monsters", JSON.stringify(updated));
     }
   };
-
-  const getGroupedMonsters = () => {
-    const groups = {};
-
-    monsters.forEach((m) => {
-      const key = `${m.sprite}|${m.name}`;
-      if (!groups[key]) groups[key] = [];
-      groups[key].push(m);
-    });
-
-    return Object.entries(groups).map(([key, group]) => ({
-      id: group[0].id,
-      sprite: group[0].sprite,
-      name: group[0].name,
-      count: group.length,
-    }));
-  };
-
-  const grouped = getGroupedMonsters();
 
   return (
     <div style={styles.container}>
       <h2 style={styles.title}>Your Monsters</h2>
 
-      {monsters.length === 0 ? (
-        <p style={styles.text}>You haven't hatched any monsters yet!</p>
+      {allMonsters.length === 0 ? (
+        <p style={styles.text}>Loading Codex...</p>
       ) : (
         <div style={styles.grid}>
-          {grouped.map((m, i) => (
-            <div key={m.id || i} style={styles.card}>
-              {/* Count badge */}
-              {m.count > 1 && (
-                <div style={styles.countBadge}>x{m.count}</div>
-              )}
+          {allMonsters.map((m, i) => {
+            const unlockedStatus = isUnlocked(m.barcode);
+            const count = getCount(m.barcode);
+            return (
+              <div key={m.barcode || i} style={styles.card}>
+                {count > 1 && <div style={styles.countBadge}>x{count}</div>}
 
-              {/* Delete Button */}
-              <button
-                onClick={() => handleDelete(m.id)}
-                style={styles.deleteBtn}
-              >
-                <XCircle size={20} color="#f87171" weight="fill" />
-              </button>
+                {unlockedStatus && (
+                  <button onClick={() => handleDelete(m.barcode)} style={styles.deleteBtn}>
+                    <XCircle size={20} color="#f87171" weight="fill" />
+                  </button>
+                )}
 
-              <img
-                src={`Sprites/Codex - The Void Sprites/${m.sprite}.png`}
-                alt={m.name}
-                style={styles.image}
-              />
-              <p style={styles.name}>{m.name || `Creature #${i + 1}`}</p>
-            </div>
-          ))}
+                <img
+                  src={unlockedStatus ? m.normalSprite : "/images/silhouette.png"}
+                  alt={m.name}
+                  style={styles.image}
+                />
+                <p style={styles.name}>{unlockedStatus ? m.name : "???"}</p>
+              </div>
+            );
+          })}
         </div>
       )}
 
