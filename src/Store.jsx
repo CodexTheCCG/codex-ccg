@@ -81,6 +81,7 @@ if (item.type === "egg") {
             color: "#fff",
           }}
         >
+
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
             {item.icon}
             <div>
@@ -112,13 +113,15 @@ if (item.type === "egg") {
   };
 
   return (
-    <div style={{ 
-      padding: "30px 20px", 
-      width: "100vw", 
-      minHeight: "100vh", 
-      background: "#121212", 
-      overflowX: "hidden" 
-     }}> 
+  <div style={{
+    padding: "30px 20px",
+    width: "100vw",
+    maxWidth: "100%",
+    overflowX: "hidden",
+    background: "#121212",
+    minHeight: "100vh",
+    boxSizing: "border-box",
+  }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
         <button
           onClick={() => navigate("/scanner")}
